@@ -8,6 +8,7 @@ import (
 	"os"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
+	"github.com/jamoowen/quoteapi/internal/utils"
 )
 
 // GetRandomQuote() (Quote, error)
@@ -18,12 +19,22 @@ type QuoteCache struct {
 	Quotes []quoteapi.Quote
 }
 
-func (q *QuoteCache) GetRandomQuote() (quoteapi.Quote, error) {
-	if len(q.Quotes) == 0 {
+func (c *QuoteCache) GetRandomQuote() (quoteapi.Quote, error) {
+	if len(c.Quotes) == 0 {
 		return quoteapi.Quote{}, errors.New("no quotes available")
 	}
-	randomIndex := rand.Intn(len(q.Quotes))
-	return q.Quotes[randomIndex], nil
+	randomIndex := rand.Intn(len(c.Quotes))
+	return c.Quotes[randomIndex], nil
+}
+
+func (c *QuoteCache) GetQuotesForAuthor(author string) ([]quoteapi.Quote, error) {
+	quotes := make([]quoteapi.Quote, 0, 10)
+	for _, quote := range c.Quotes {
+		if utils.LooselyCompareTwoStrings(quote.Author, author) {
+			quotes = append(quotes, quote)
+		}
+	}
+	return quotes, nil
 }
 
 func NewQuoteCache(csvPath string) (*QuoteCache, error) {

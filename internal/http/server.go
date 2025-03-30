@@ -12,11 +12,15 @@ import (
 type Server struct {
 }
 
+func (s *Server) registerRoutes(mux *http.ServeMux, h Handler) {
+	mux.HandleFunc("GET /quote/random", h.randomQuoteHandler)
+	mux.HandleFunc("GET /quote/author", h.getQuotesForAuthorHandler)
+}
+
 func (s *Server) StartServer(quoteService quoteapi.QuoteService) error {
 	mux := http.NewServeMux()
 	handler := Handler{QuoteService: quoteService}
-	mux.Handle("/", &handler)
-
+	s.registerRoutes(mux, handler)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
