@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"slices"
+	"strings"
+	"sync"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
 	"github.com/jamoowen/quoteapi/internal/utils"
@@ -16,10 +19,13 @@ import (
 // InsertQuote(Quote) error
 
 type QuoteCache struct {
+	mu     sync.RWMutex
 	Quotes []quoteapi.Quote
 }
 
 func (c *QuoteCache) GetRandomQuote() (quoteapi.Quote, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if len(c.Quotes) == 0 {
 		return quoteapi.Quote{}, errors.New("no quotes available")
 	}
@@ -28,6 +34,8 @@ func (c *QuoteCache) GetRandomQuote() (quoteapi.Quote, error) {
 }
 
 func (c *QuoteCache) GetQuotesForAuthor(author string) ([]quoteapi.Quote, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	quotes := make([]quoteapi.Quote, 0, 10)
 	for _, quote := range c.Quotes {
 		if utils.LooselyCompareTwoStrings(quote.Author, author) {
@@ -35,6 +43,36 @@ func (c *QuoteCache) GetQuotesForAuthor(author string) ([]quoteapi.Quote, error)
 		}
 	}
 	return quotes, nil
+}
+
+func (c *QuoteCache) addNewQuote(newQuote quoteapi.Quote) error {
+	// 1 -> lock the array
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// find the place to insert (retaining ordering)
+	// iterate until
+	for i, quote := range c.Quotes {
+		// if its an author we havent seen before insert alphabetically
+		if newQuote.Author < quote.Author {
+			c.Quotes = slices.Insert(c.Quotes, i, newQuote)
+			break
+		}
+		// if we have seen the author insert only if the Message is ordered
+		if newQuote.Author == quote.Author {
+			if newQuote.Message < quote.Message {
+				c.Quotes = slices.Insert(c.Quotes, i, newQuote)
+				break
+			}
+		}
+		// append if its the last ordered
+		if i == len(c.Quotes)-1 {
+			c.Quotes = append(c.Quotes, newQuote)
+		}
+
+	}
+	// now insert into csv
+
+	return nil
 }
 
 func NewQuoteCache(csvPath string) (*QuoteCache, error) {
@@ -64,6 +102,5 @@ func NewQuoteCache(csvPath string) (*QuoteCache, error) {
 		var message string = record[1]
 		slice = append(slice, quoteapi.Quote{Author: author, Message: message})
 	}
-
 	return &QuoteCache{Quotes: slice}, nil
 }

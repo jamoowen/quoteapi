@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
 )
@@ -48,18 +49,35 @@ func (h *Handler) getQuotesForAuthorHandler(w http.ResponseWriter, r *http.Reque
 // POST /quote/add
 func (h *Handler) addQuote(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	// need to get author out of the request
+	// Limit request body size to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		if err == http.ErrBodyReadAfterClose {
+			badRequestError(w, "Request body too large")
+			return
+		}
 		badRequestError(w, "Could not parse request body")
 		return
 	}
 	var newQuote quoteapi.Quote
 	err = json.Unmarshal(body, &newQuote)
 	if err != nil {
-		badRequestError(w, "Malformed Json. Expected author & message object")
+		badRequestError(w, "Malformed JSON. Expected author & message object")
 		return
 	}
+	// Validate required fields
+	if newQuote.Author == "" || newQuote.Message == "" {
+		badRequestError(w, "Author and message are required")
+		return
+	}
+	// Validate message length (100 words)
+	words := strings.Fields(newQuote.Message)
+	if len(words) > 100 {
+		badRequestError(w, "Message cannot exceed 100 words")
+		return
+	}
+
 	// now we need to
 	// a) append to list (cache)
 	// b) write to csv
