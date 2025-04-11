@@ -8,9 +8,9 @@ func normalizeStringForLooseComparison(s string) string {
 }
 
 // eg: LooselyCompareTwoStrings("James", "jam") => true
-func LooselyCompareTwoStrings(masterString, candidateString string) bool {
-	mS := normalizeStringForLooseComparison(masterString)
-	cS := normalizeStringForLooseComparison(candidateString)
+func LooselyCompareTwoStrings(mainString, subString string) bool {
+	mS := normalizeStringForLooseComparison(mainString)
+	cS := normalizeStringForLooseComparison(subString)
 	if len(mS) == 0 || len(cS) == 0 {
 		return false
 	}

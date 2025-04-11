@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 //
@@ -14,6 +15,9 @@ import (
 
 func ReadCsv(path string) ([][]string, error) {
 	// need file first
+	if !strings.Contains(path, ".csv") {
+		return nil, errors.New(fmt.Sprintf("Provided path not a valid csv (%v)", path))
+	}
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("ERROR: failed to open file: %v", err))

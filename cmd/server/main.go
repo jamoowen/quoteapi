@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"path"
 
 	"github.com/jamoowen/quoteapi/internal/cache"
 	"github.com/jamoowen/quoteapi/internal/http"
@@ -24,8 +26,13 @@ func main() {
 	// load env vars
 	// initialize cache
 	//
-
-	cache, err := cache.NewQuoteCache(os.Getenv("QUOTE_CSV_PATH"))
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("Startup error: %v", err.Error())
+	}
+	csvPath := path.Join(wd, "/data/quotes.csv")
+	fmt.Println("csvPath: ", csvPath)
+	cache, err := cache.NewQuoteCache(csvPath)
 	if err != nil {
 		log.Fatal(err)
 	}

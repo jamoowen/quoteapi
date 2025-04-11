@@ -1,16 +1,14 @@
 package cache
 
 import (
-	"encoding/csv"
-	"errors"
 	"fmt"
 	"math/rand"
-	"os"
 	"slices"
 	"strings"
 	"sync"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
+	"github.com/jamoowen/quoteapi/internal/csv"
 	"github.com/jamoowen/quoteapi/internal/utils"
 )
 
@@ -27,7 +25,7 @@ func (c *QuoteCache) GetRandomQuote() (quoteapi.Quote, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if len(c.Quotes) == 0 {
-		return quoteapi.Quote{}, errors.New("no quotes available")
+		return quoteapi.Quote{}, fmt.Errorf("no quotes available")
 	}
 	randomIndex := rand.Intn(len(c.Quotes))
 	return c.Quotes[randomIndex], nil
@@ -45,7 +43,7 @@ func (c *QuoteCache) GetQuotesForAuthor(author string) ([]quoteapi.Quote, error)
 	return quotes, nil
 }
 
-func (c *QuoteCache) addNewQuote(newQuote quoteapi.Quote) error {
+func (c *QuoteCache) AddNewQuote(newQuote quoteapi.Quote) error {
 	// 1 -> lock the array
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -53,43 +51,36 @@ func (c *QuoteCache) addNewQuote(newQuote quoteapi.Quote) error {
 	// iterate until
 	for i, quote := range c.Quotes {
 		// if its an author we havent seen before insert alphabetically
-		if newQuote.Author < quote.Author {
+		newAuthor := strings.ToLower(newQuote.Author)
+		currAuthor := strings.ToLower(quote.Author)
+		if newAuthor < currAuthor {
 			c.Quotes = slices.Insert(c.Quotes, i, newQuote)
 			break
 		}
 		// if we have seen the author insert only if the Message is ordered
-		if newQuote.Author == quote.Author {
-			if newQuote.Message < quote.Message {
-				c.Quotes = slices.Insert(c.Quotes, i, newQuote)
+		if newAuthor == currAuthor {
+			// ignore if a duplicate
+			if newQuote.Message == quote.Message {
 				break
 			}
+			c.Quotes = slices.Insert(c.Quotes, i, newQuote)
+			break
 		}
 		// append if its the last ordered
 		if i == len(c.Quotes)-1 {
 			c.Quotes = append(c.Quotes, newQuote)
 		}
-
 	}
-	// now insert into csv
-
+	// now we want to overwrite our csv file
 	return nil
 }
 
 func NewQuoteCache(csvPath string) (*QuoteCache, error) {
-	if csvPath == "" {
-		return nil, errors.New("missing path to csv")
-	}
-	file, err := os.Open(csvPath)
+	records, err := csv.ReadCsv(csvPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %v", err)
+		return nil, fmt.Errorf("Failed to initialize quote cache: %w", err)
 	}
-	defer file.Close()
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read csv: %v", err)
-	}
-	slice := make([]quoteapi.Quote, 0, len(records))
+	quotes := make([]quoteapi.Quote, 0, len(records))
 	for i, record := range records {
 		if i == 0 {
 			continue
@@ -100,7 +91,14 @@ func NewQuoteCache(csvPath string) (*QuoteCache, error) {
 		}
 		var author string = record[0]
 		var message string = record[1]
-		slice = append(slice, quoteapi.Quote{Author: author, Message: message})
+		quotes = append(quotes, quoteapi.Quote{Author: author, Message: message})
 	}
-	return &QuoteCache{Quotes: slice}, nil
+
+	slices.SortFunc(quotes, func(a, b quoteapi.Quote) int {
+		if n := strings.Compare(strings.ToLower(a.Author), strings.ToLower(b.Author)); n != 0 {
+			return n
+		}
+		return strings.Compare(strings.ToLower(a.Message), strings.ToLower(b.Message))
+	})
+	return &QuoteCache{Quotes: quotes}, nil
 }

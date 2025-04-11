@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestFooerTableDriven(t *testing.T) {
+func TestLooselyCompareTwoStrings(t *testing.T) {
 	// Defining the columns of the table
 	var tests = []struct {
 		name string

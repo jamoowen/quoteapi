@@ -8,5 +8,5 @@ type Quote struct {
 type QuoteService interface {
 	GetRandomQuote() (Quote, error)
 	GetQuotesForAuthor(author string) ([]Quote, error)
-	// InsertQuote(Quote) error
+	AddNewQuote(Quote) error
 }
