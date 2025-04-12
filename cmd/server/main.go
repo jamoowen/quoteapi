@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path"
@@ -26,17 +25,17 @@ func main() {
 	// load env vars
 	// initialize cache
 	//
+	logger := log.Default()
 	wd, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("Startup error: %v", err.Error())
+		logger.Fatalf("Startup error: %v", err.Error())
 	}
 	csvPath := path.Join(wd, "/data/quotes.csv")
-	fmt.Println("csvPath: ", csvPath)
 	cache, err := cache.NewQuoteCache(csvPath)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	server := http.Server{}
-	log.Fatal(server.StartServer(cache))
+	log.Fatal(server.StartServer(cache, logger))
 
 }

@@ -2,7 +2,10 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
+	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -11,6 +14,7 @@ import (
 
 type Handler struct {
 	QuoteService quoteapi.QuoteService
+	logger       *log.Logger
 }
 
 func (h *Handler) randomQuoteHandler(w http.ResponseWriter, r *http.Request) {
@@ -82,4 +86,51 @@ func (h *Handler) addQuote(w http.ResponseWriter, r *http.Request) {
 	// a) append to list (cache)
 	// b) write to csv
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) newApiKeyRequestForm(w http.ResponseWriter, r *http.Request) {
+	t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
+	t.Execute(w, nil)
+}
+
+func (h *Handler) handleApiKeyRequestFormSubmission(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	email := r.FormValue("email")
+	otp := r.FormValue("otp")
+	if !strings.Contains(email, "@") {
+		badRequestError(w, "invalid email!")
+		return
+	}
+
+	switch otp {
+	case "":
+		//send email here
+		type InjectableData struct {
+			Email    string
+			Response string
+			Error    string
+		}
+
+		h.logger.Print("Sending email...")
+		dataToInjectIntoHtml := InjectableData{}
+		if true {
+			dataToInjectIntoHtml.Email = email
+			dataToInjectIntoHtml.Response = "OTP sent! Check your email and enter it here"
+		} else {
+			dataToInjectIntoHtml.Error = fmt.Sprintf("Unable to send email to %v", email)
+		}
+		t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
+		t.Execute(w, dataToInjectIntoHtml)
+
+	default:
+		//verify otp
+		// easiest way to do this is create an in mem cache mapping email to otp. if expired, throw away
+		// must match otp -> email
+		h.logger.Print("Sending email...")
+		type ApiKeyResponse struct {
+			APIKEY string
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(ApiKeyResponse{"20983rhnjfw2iuh"})
+	}
 }
