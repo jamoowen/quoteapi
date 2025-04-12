@@ -8,6 +8,7 @@ import (
 	"time"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
+	"github.com/jamoowen/quoteapi/internal/email"
 )
 
 type Server struct {
@@ -21,10 +22,11 @@ func (s *Server) registerRoutes(mux *http.ServeMux, h Handler) {
 	mux.HandleFunc("POST /authorize", h.handleApiKeyRequestFormSubmission)
 }
 
-func (s *Server) StartServer(quoteService quoteapi.QuoteService, logger *log.Logger) error {
+func (s *Server) StartServer(quoteService quoteapi.QuoteService, smtpService email.MailService, logger *log.Logger) error {
 	mux := http.NewServeMux()
 	handler := Handler{
-		QuoteService: quoteService,
+		quoteService: quoteService,
+		mailer:       smtpService,
 		logger:       logger,
 	}
 	s.registerRoutes(mux, handler)

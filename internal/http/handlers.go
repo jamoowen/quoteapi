@@ -10,16 +10,19 @@ import (
 	"strings"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
+	"github.com/jamoowen/quoteapi/internal/email"
+	"github.com/jamoowen/quoteapi/internal/utils"
 )
 
 type Handler struct {
-	QuoteService quoteapi.QuoteService
+	quoteService quoteapi.QuoteService
 	logger       *log.Logger
+	mailer       email.MailService
 }
 
 func (h *Handler) randomQuoteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	randomQuote, err := h.QuoteService.GetRandomQuote()
+	randomQuote, err := h.quoteService.GetRandomQuote()
 	if err != nil {
 		internalServerError(w, err.Error())
 		return
@@ -37,7 +40,7 @@ func (h *Handler) getQuotesForAuthorHandler(w http.ResponseWriter, r *http.Reque
 		badRequestError(w, "author name must be provided")
 
 	}
-	randomQuote, err := h.QuoteService.GetQuotesForAuthor(author)
+	randomQuote, err := h.quoteService.GetQuotesForAuthor(author)
 	if err != nil {
 		internalServerError(w, err.Error())
 		return
@@ -97,7 +100,7 @@ func (h *Handler) handleApiKeyRequestFormSubmission(w http.ResponseWriter, r *ht
 	r.ParseForm()
 	email := r.FormValue("email")
 	otp := r.FormValue("otp")
-	if !strings.Contains(email, "@") {
+	if utils.LooksLikeEmail(email) == false {
 		badRequestError(w, "invalid email!")
 		return
 	}
@@ -111,12 +114,15 @@ func (h *Handler) handleApiKeyRequestFormSubmission(w http.ResponseWriter, r *ht
 			Error    string
 		}
 
-		h.logger.Print("Sending email...")
+		h.logger.Println("Sending email...")
 		dataToInjectIntoHtml := InjectableData{}
-		if true {
+		err := h.mailer.Send(email, "Quote API OTP", "OTP: 289347y234r")
+		if err == nil {
 			dataToInjectIntoHtml.Email = email
 			dataToInjectIntoHtml.Response = "OTP sent! Check your email and enter it here"
+			// need to store in otpcache
 		} else {
+			h.logger.Printf("ERROR sending email: %v", err.Error())
 			dataToInjectIntoHtml.Error = fmt.Sprintf("Unable to send email to %v", email)
 		}
 		t := template.Must(template.New("form").Parse(apiKeyRequestTempl))

@@ -7,10 +7,10 @@ import (
 func TestLooselyCompareTwoStrings(t *testing.T) {
 	// Defining the columns of the table
 	var tests = []struct {
-		name string
-		s1   string
-		s2   string
-		want bool
+		descrip string
+		s1      string
+		s2      string
+		want    bool
 	}{
 		// the table itself
 		{"Similar strings should return true", "James", "jame", true},
@@ -22,8 +22,31 @@ func TestLooselyCompareTwoStrings(t *testing.T) {
 	}
 	// The execution loop
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.descrip, func(t *testing.T) {
 			ans := LooselyCompareTwoStrings(tt.s1, tt.s2)
+			if ans != tt.want {
+				t.Errorf("got %t, want %t", ans, tt.want)
+			}
+		})
+	}
+}
+
+func TestLooksLikeEmail(t *testing.T) {
+	// Defining the columns of the table
+	var tests = []struct {
+		descrip string
+		email   string
+		want    bool
+	}{
+		// the table itself
+		{"Valid email should return true", "test@gmail.com", true},
+		{"Should return false if missing @", "testgmail.com", false},
+		{"Should return false if missing .", "test@gmailcom", false},
+	}
+	// The execution loop
+	for _, tt := range tests {
+		t.Run(tt.descrip, func(t *testing.T) {
+			ans := LooksLikeEmail(tt.email)
 			if ans != tt.want {
 				t.Errorf("got %t, want %t", ans, tt.want)
 			}

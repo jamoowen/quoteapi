@@ -16,3 +16,17 @@ func LooselyCompareTwoStrings(mainString, subString string) bool {
 	}
 	return strings.Contains(mS, cS)
 }
+
+func LooksLikeEmail(email string) bool {
+	hasAtSymbol := false
+	hasDot := false
+	for _, char := range email {
+		switch char {
+		case '.':
+			hasDot = true
+		case '@':
+			hasAtSymbol = true
+		}
+	}
+	return hasAtSymbol && hasDot
+}

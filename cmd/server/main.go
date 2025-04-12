@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/jamoowen/quoteapi/internal/cache"
+	"github.com/jamoowen/quoteapi/internal/email"
 	"github.com/jamoowen/quoteapi/internal/http"
 	"github.com/joho/godotenv"
 )
@@ -25,6 +26,7 @@ func main() {
 	// load env vars
 	// initialize cache
 	//
+
 	logger := log.Default()
 	wd, err := os.Getwd()
 	if err != nil {
@@ -35,7 +37,17 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+
+	emailAddress := os.Getenv("SMTP_EMAIL_ADDRESS")
+	emailPassword := os.Getenv("GMAIL_APP_PASSWORD")
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	smtpService, err := email.NewSmtpMailer(emailAddress, emailPassword, smtpHost, smtpPort)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
 	server := http.Server{}
-	log.Fatal(server.StartServer(cache, logger))
+	log.Fatal(server.StartServer(cache, smtpService, logger))
 
 }

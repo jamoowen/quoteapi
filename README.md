@@ -20,3 +20,13 @@ in your browser go to /authenticate
 GET /random
 GET /random/author
 
+
+
+running locally:
+1. install binary from github 
+2. install sqlite from brew if not already done
+
+
+to interact via cli with db:
+sqlite3 db/quotedb.sqlite
+
