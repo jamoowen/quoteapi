@@ -26,6 +26,10 @@ func LooksLikeEmail(email string) bool {
 			hasDot = true
 		case '@':
 			hasAtSymbol = true
+		case ';':
+			return false
+		case ',':
+			return false
 		}
 	}
 	return hasAtSymbol && hasDot

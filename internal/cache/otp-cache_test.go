@@ -18,7 +18,7 @@ func TestCacheOtp(t *testing.T) {
 		t.Errorf("Expected 1 item in the cache")
 	}
 	otp, ok := c.cache[email]
-	if ok == false || otp.pin != pin {
+	if ok == false || otp.Pin != pin {
 		t.Errorf("Failed to cache pin")
 	}
 }

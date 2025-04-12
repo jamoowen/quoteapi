@@ -3,20 +3,32 @@ package auth
 import (
 	"crypto/rand"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/jamoowen/quoteapi/internal/cache"
+	"github.com/jamoowen/quoteapi/internal/problems"
 )
 
 type AuthService interface {
-	GenerateAPIKey(email string) (string, error)
+	GenerateApiKey(email string) (string, error)
 	GenerateOtp(email string) (string, error)
-	Authenticate(apiKey string) (bool, error)
+	AuthenticateOtp(email, otp string) (OTPStatus, error)
+	AuthenticateApiKey(apiKey string) (bool, error)
 }
+
+type OTPStatus int
+
+const (
+	OTPValid OTPStatus = iota
+	OTPInvalid
+	OTPExpired
+	OTPUserNotFound
+	OTPError
+)
 
 type PersistedKey struct {
 	id           int
@@ -28,19 +40,21 @@ type PersistedKey struct {
 }
 
 type Auth struct {
-	otpService cache.OtpService
-	db         *sql.DB
+	otpService      cache.OtpService
+	otpSecondsValid int64
+	db              *sql.DB
 }
 
-func (a *Auth) NewAuthService(db *sql.DB) Auth {
+func (a *Auth) NewAuthService(db *sql.DB, otpSecondsValid int64) Auth {
 	otpCache := cache.NewOtpCache()
 	return Auth{
-		otpService: otpCache,
-		db:         db,
+		otpService:      otpCache,
+		otpSecondsValid: otpSecondsValid,
+		db:              db,
 	}
 }
 
-func (a *Auth) GenerateOtp(email string, secondsTilExpiration int64) (string, error) {
+func (a *Auth) generatePinForOtp() (string, error) {
 	maxDigits := 6
 	bi, err := rand.Int(
 		rand.Reader,
@@ -52,6 +66,25 @@ func (a *Auth) GenerateOtp(email string, secondsTilExpiration int64) (string, er
 	pin := fmt.Sprintf("%0*d", maxDigits, bi)
 
 	return pin, nil
+}
+
+func (a *Auth) AuthenticateOtp(email, pin string) (OTPStatus, error) {
+	otp, err := a.otpService.GetOtp(email)
+	if errors.Is(err, &problems.NotFoundError{}) {
+		return OTPUserNotFound, nil
+	}
+	if err != nil {
+		return OTPError, err
+	}
+	if otp.Pin != pin {
+		return OTPInvalid, nil
+	}
+	pinExpiration := time.Now().Unix() - a.otpSecondsValid
+	if otp.CreatedTime < pinExpiration {
+		return OTPExpired, nil
+	}
+	a.otpService.InvalidateOtp(email)
+	return OTPValid, nil
 }
 
 func (a *Auth) GenerateApiKey(email string) (string, error) {

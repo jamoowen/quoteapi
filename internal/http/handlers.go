@@ -10,12 +10,14 @@ import (
 	"strings"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
+	"github.com/jamoowen/quoteapi/internal/auth"
 	"github.com/jamoowen/quoteapi/internal/email"
 	"github.com/jamoowen/quoteapi/internal/utils"
 )
 
 type Handler struct {
 	quoteService quoteapi.QuoteService
+	authService  auth.AuthService
 	logger       *log.Logger
 	mailer       email.MailService
 }
@@ -84,10 +86,6 @@ func (h *Handler) addQuote(w http.ResponseWriter, r *http.Request) {
 		badRequestError(w, "Message cannot exceed 100 words")
 		return
 	}
-
-	// now we need to
-	// a) append to list (cache)
-	// b) write to csv
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -97,46 +95,79 @@ func (h *Handler) newApiKeyRequestForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleApiKeyRequestFormSubmission(w http.ResponseWriter, r *http.Request) {
+	var email, otp string
+	contentType:= r.Header.Get("Conent-type")
+	switch contentType{
+	case "application/json":
+		return 
+	case "application/x-www-form-urlencoded":
 	r.ParseForm()
-	email := r.FormValue("email")
-	otp := r.FormValue("otp")
+	email = r.FormValue("email")
+	otp = r.FormValue("otp")
 	if utils.LooksLikeEmail(email) == false {
 		badRequestError(w, "invalid email!")
 		return
 	}
-
+	type InjectableData struct {
+		Email    string
+		Response string
+		Error    string
+	}
+	type ApiKeyResponse struct {
+		APIKEY string
+	}
+	dataToInjectIntoHtml := InjectableData{}
+	t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
+		if err:= h.handleotp 
 	switch otp {
 	case "":
-		//send email here
-		type InjectableData struct {
-			Email    string
-			Response string
-			Error    string
-		}
 
-		h.logger.Println("Sending email...")
-		dataToInjectIntoHtml := InjectableData{}
-		err := h.mailer.Send(email, "Quote API OTP", "OTP: 289347y234r")
 		if err == nil {
 			dataToInjectIntoHtml.Email = email
 			dataToInjectIntoHtml.Response = "OTP sent! Check your email and enter it here"
-			// need to store in otpcache
-		} else {
-			h.logger.Printf("ERROR sending email: %v", err.Error())
-			dataToInjectIntoHtml.Error = fmt.Sprintf("Unable to send email to %v", email)
+			t.Execute(w, dataToInjectIntoHtml)
+			return
 		}
-		t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
-		t.Execute(w, dataToInjectIntoHtml)
 
 	default:
-		//verify otp
-		// easiest way to do this is create an in mem cache mapping email to otp. if expired, throw away
-		// must match otp -> email
-		h.logger.Print("Sending email...")
-		type ApiKeyResponse struct {
-			APIKEY string
+		if isValid == false {
+
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(ApiKeyResponse{"20983rhnjfw2iuh"})
+		json.NewEncoder(w).Encode(ApiKeyResponse{key})
 	}
+}
+
+func (h *Handler) handleFormSubmission(w http.ResponseWriter, r *http.Request) {
+
+			}
+
+func (h *Handler) handleOtpRequest(email string) error {
+	h.logger.Println("Sending otp email...")
+	pin, err := h.authService.GenerateOtp(email)
+	if err != nil {
+		h.logger.Printf("ERROR generating otp: %v", err.Error())
+		return fmt.Errorf("ERROR generating otp")
+	}
+	err = h.mailer.Send(email, "Quote API OTP", fmt.Sprintf("OTP: %v", pin))
+	if err != nil {
+		h.logger.Printf("ERROR sending email: %v", err.Error())
+		return fmt.Errorf("ERROR sending email")
+	}
+	return nil
+}
+
+func (h *Handler) handleOtpSubmission(email, pin string) error {
+	status, err := h.authService.AuthenticateOtp(email, pin)
+	if err != nil {
+		h.logger.Printf("ERROR authenticating OTP")
+		return fmt.Errorf("Error authenticating OTP")
+	} else if status == auth.OTPInvalid {
+		return fmt.Errorf("Invalid OTP!")
+	} else if status == auth.OTPExpired {
+		return fmt.Errorf("Expired OTP!")
+	} else if status == auth.OTPUserNotFound {
+		return fmt.Errorf("No OTP found matching email")
+	}
+	return nil
 }
