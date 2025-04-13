@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/jamoowen/quoteapi/internal/cache"
 	"github.com/jamoowen/quoteapi/internal/problems"
+	"github.com/jamoowen/quoteapi/internal/sqlite"
 )
 
 type AuthService interface {
@@ -42,15 +44,17 @@ type PersistedKey struct {
 type Auth struct {
 	otpService      cache.OtpService
 	otpSecondsValid int64
-	db              *sql.DB
+	usersStorage    sqlite.UsersStorage
+	apiKeySecret    string
 }
 
 func NewAuthService(db *sql.DB, otpSecondsValid int64) *Auth {
+	usersStorage := sqlite.NewUsersStorage(db)
 	otpCache := cache.NewOtpCache()
 	return &Auth{
 		otpService:      otpCache,
 		otpSecondsValid: otpSecondsValid,
-		db:              db,
+		usersStorage:    usersStorage,
 	}
 }
 
@@ -98,12 +102,30 @@ func (a *Auth) AuthenticateOtp(email, pin string) (OTPStatus, error) {
 
 // todo
 func (a *Auth) GenerateApiKey(email string) (string, error) {
-	return "SUPER SECRTET API KEY", nil
+	s := string(time.Now().UnixNano()) + a.apiKeySecret
+	apiKey := a.hashString(s)
+	// yes i know im rehashing
+	hashedApiKey := a.hashString(apiKey)
+	err := a.usersStorage.UpsertKeyForUser(email, hashedApiKey)
+	if err != nil {
+		return "", err
+	}
+	return apiKey, nil
 }
 
-// todo
 func (a *Auth) AuthenticateApiKey(apiKey string) (bool, error) {
-	return true, nil
+	hashedApiKey := a.hashString(apiKey)
+	_, err := a.usersStorage.GetUserByKey(hashedApiKey)
+	if errors.Is(err, &problems.NotFoundError{}) {
+		return false, nil
+	}
+	return false, err
+}
+
+func (a *Auth) hashString(s string) string {
+	h := sha256.New()
+	h.Write([]byte(s))
+	return string(h.Sum(nil))
 }
 
 // gen new key for email => create new key and assign to cache
