@@ -1,3 +1,12 @@
+To do:
+- add context to db calls
+- rate limiter
+- tests for rate limiter
+- auth middleware
+- connection pool
+
+
+
 # Quote Api 
 REST API for returning quotes from authors
 
