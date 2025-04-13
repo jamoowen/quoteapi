@@ -8,6 +8,7 @@ import (
 	"time"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
+	"github.com/jamoowen/quoteapi/internal/auth"
 	"github.com/jamoowen/quoteapi/internal/email"
 )
 
@@ -18,14 +19,15 @@ func (s *Server) registerRoutes(mux *http.ServeMux, h Handler) {
 	mux.HandleFunc("GET /quote/random", h.randomQuoteHandler)
 	mux.HandleFunc("GET /quote/author", h.getQuotesForAuthorHandler)
 	mux.HandleFunc("POST /quote/author", h.addQuote)
-	mux.HandleFunc("GET /authorize", h.newApiKeyRequestForm)
-	mux.HandleFunc("POST /authorize", h.handleApiKeyRequestFormSubmission)
+	mux.HandleFunc("GET /authenticate", h.handleAuthenticate)
+	mux.HandleFunc("POST /authenticate", h.handleAuthenticate)
 }
 
-func (s *Server) StartServer(quoteService quoteapi.QuoteService, smtpService email.MailService, logger *log.Logger) error {
+func (s *Server) StartServer(quoteService quoteapi.QuoteService, smtpService email.MailService, authService auth.AuthService, logger *log.Logger) error {
 	mux := http.NewServeMux()
 	handler := Handler{
 		quoteService: quoteService,
+		authService:  authService,
 		mailer:       smtpService,
 		logger:       logger,
 	}

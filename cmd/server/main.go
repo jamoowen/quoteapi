@@ -4,11 +4,16 @@ import (
 	"log"
 	"os"
 	"path"
+	"strconv"
 
+	"database/sql"
+
+	"github.com/jamoowen/quoteapi/internal/auth"
 	"github.com/jamoowen/quoteapi/internal/cache"
 	"github.com/jamoowen/quoteapi/internal/email"
 	"github.com/jamoowen/quoteapi/internal/http"
 	"github.com/joho/godotenv"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func init() {
@@ -19,14 +24,6 @@ func init() {
 }
 
 func main() {
-	//  set up db here
-	// create controller with db connection? (pointer to the array)
-	// pass controller to the router?
-
-	// load env vars
-	// initialize cache
-	//
-
 	logger := log.Default()
 	wd, err := os.Getwd()
 	if err != nil {
@@ -47,7 +44,20 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	db, err := sql.Open("sqlite3", "./db/quotedb.sqlite")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	otpSecondsValid, err := strconv.Atoi(os.Getenv("OTP_SECONDS_VALID"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	authService := auth.NewAuthService(db, int64(otpSecondsValid))
+
 	server := http.Server{}
-	log.Fatal(server.StartServer(cache, smtpService, logger))
+	log.Fatal(server.StartServer(cache, smtpService, authService, logger))
 
 }

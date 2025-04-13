@@ -129,11 +129,11 @@ var apiKeyRequestTempl = `
                     <div class="response">{{.Response}}</div>
                 {{end}}
                 
-                <form method="POST" action="/authorize">
+                <form method="POST" action="/authenticate">
                     <div class="form-group">
                     {{if .Email}}
                         <label for="email">Email:</label>
-                        <input disabled type="email" id="email" name="email" value="{{.Email}}" required>
+                        <input readonly type="email" id="email" name="email" value="{{.Email}}" required>
                     {{else}}
                         <label for="email">Email:</label>
                         <input type="email" id="email" name="email" required>
@@ -145,7 +145,7 @@ var apiKeyRequestTempl = `
                     </div>
                     <div class="button-group">
                         <input type="submit" value="Submit">
-                        <a href="/authorize" class="reset-button">Reset</a>
+                        <a href="/authenticate" class="reset-button">Reset</a>
                     </div>
                 </form>            
             </body>

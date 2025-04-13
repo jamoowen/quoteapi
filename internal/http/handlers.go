@@ -12,6 +12,7 @@ import (
 	quoteapi "github.com/jamoowen/quoteapi/internal"
 	"github.com/jamoowen/quoteapi/internal/auth"
 	"github.com/jamoowen/quoteapi/internal/email"
+	"github.com/jamoowen/quoteapi/internal/problems"
 	"github.com/jamoowen/quoteapi/internal/utils"
 )
 
@@ -21,12 +22,15 @@ type Handler struct {
 	logger       *log.Logger
 	mailer       email.MailService
 }
+type ApiKeyResponse struct {
+	APIKEY string
+}
 
 func (h *Handler) randomQuoteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	randomQuote, err := h.quoteService.GetRandomQuote()
 	if err != nil {
-		internalServerError(w, err.Error())
+		h.handleHttpError(w, problems.NewHTTPError(http.StatusInternalServerError, "", err))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -39,13 +43,14 @@ func (h *Handler) getQuotesForAuthorHandler(w http.ResponseWriter, r *http.Reque
 	// need to get author out of the request
 	author := r.URL.Query().Get("name")
 	if author == "" {
-		badRequestError(w, "author name must be provided")
-
+		h.handleHttpError(w, problems.NewHTTPError(http.StatusBadRequest, "author name must be provided", nil))
+		return
 	}
 	randomQuote, err := h.quoteService.GetQuotesForAuthor(author)
 	if err != nil {
-		internalServerError(w, err.Error())
+		h.handleHttpError(w, problems.NewHTTPError(http.StatusInternalServerError, "", err))
 		return
+
 	}
 	w.WriteHeader(http.StatusOK)
 	if len(randomQuote) == 0 {
@@ -63,111 +68,147 @@ func (h *Handler) addQuote(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		if err == http.ErrBodyReadAfterClose {
-			badRequestError(w, "Request body too large")
+			h.handleHttpError(w, problems.NewHTTPError(http.StatusBadRequest, "Request too large", nil))
 			return
 		}
-		badRequestError(w, "Could not parse request body")
+		h.handleHttpError(w, problems.NewHTTPError(http.StatusBadRequest, "Could not parse request body", nil))
 		return
 	}
 	var newQuote quoteapi.Quote
 	err = json.Unmarshal(body, &newQuote)
 	if err != nil {
-		badRequestError(w, "Malformed JSON. Expected author & message object")
+		h.handleHttpError(w, problems.NewHTTPError(http.StatusBadRequest, "Malformed JSON. Expected author & message object", nil))
 		return
 	}
 	// Validate required fields
 	if newQuote.Author == "" || newQuote.Message == "" {
-		badRequestError(w, "Author and message are required")
+		h.handleHttpError(w, problems.NewHTTPError(http.StatusBadRequest, "Author and Message required", nil))
 		return
 	}
 	// Validate message length (100 words)
 	words := strings.Fields(newQuote.Message)
 	if len(words) > 100 {
-		badRequestError(w, "Message cannot exceed 100 words")
+		h.handleHttpError(w, problems.NewHTTPError(http.StatusBadRequest, "Message cannot exceed 100 words", nil))
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
 }
 
 func (h *Handler) newApiKeyRequestForm(w http.ResponseWriter, r *http.Request) {
-	t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
-	t.Execute(w, nil)
 }
 
-func (h *Handler) handleApiKeyRequestFormSubmission(w http.ResponseWriter, r *http.Request) {
-	var email, otp string
-	contentType:= r.Header.Get("Conent-type")
-	switch contentType{
+func (h *Handler) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-type")
+	fmt.Printf("Content type: %v\n", contentType)
+	switch contentType {
 	case "application/json":
-		return 
 	case "application/x-www-form-urlencoded":
-	r.ParseForm()
-	email = r.FormValue("email")
-	otp = r.FormValue("otp")
-	if utils.LooksLikeEmail(email) == false {
-		badRequestError(w, "invalid email!")
+		h.handleFormSubmission(w, r)
+	default:
+		t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
+		t.Execute(w, nil)
 		return
 	}
+}
+
+func (h *Handler) handleFormSubmission(w http.ResponseWriter, r *http.Request) {
 	type InjectableData struct {
 		Email    string
 		Response string
 		Error    string
 	}
-	type ApiKeyResponse struct {
-		APIKEY string
-	}
+
 	dataToInjectIntoHtml := InjectableData{}
 	t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
-		if err:= h.handleotp 
-	switch otp {
-	case "":
+	r.ParseForm()
+	email := r.FormValue("email")
+	fmt.Println("subnmitting form")
+	submittedPin := r.FormValue("pin")
 
-		if err == nil {
-			dataToInjectIntoHtml.Email = email
-			dataToInjectIntoHtml.Response = "OTP sent! Check your email and enter it here"
+	fmt.Println("email, otp: ", email, submittedPin)
+	// new otp request
+	if submittedPin == "" && email == "" {
+		t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
+		t.Execute(w, nil)
+		return
+
+	} else if submittedPin == "" {
+		fmt.Println("handling otp req")
+		httpErr := h.handleOtpRequest(email)
+		if httpErr != nil {
+			dataToInjectIntoHtml.Error = httpErr.Message
 			t.Execute(w, dataToInjectIntoHtml)
 			return
 		}
+		dataToInjectIntoHtml.Email = email
+		dataToInjectIntoHtml.Response = "OTP sent! Check your email and enter it here"
+		t.Execute(w, dataToInjectIntoHtml)
+		return
 
-	default:
-		if isValid == false {
-
+	} else {
+		fmt.Println("handling otp submission")
+		apiKey, httpErr := h.handleOtpSubmission(email, submittedPin)
+		if httpErr != nil {
+			dataToInjectIntoHtml.Error = httpErr.Message
+			t.Execute(w, dataToInjectIntoHtml)
+			return
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(ApiKeyResponse{key})
+		json.NewEncoder(w).Encode(ApiKeyResponse{apiKey})
 	}
 }
 
-func (h *Handler) handleFormSubmission(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleOtpRequest(email string) *problems.HTTPError {
+	if utils.LooksLikeEmail(email) == false {
+		return problems.NewHTTPError(http.StatusBadRequest, "Invalid email", nil)
+	}
+	fmt.Println("gernerating otp")
 
-			}
-
-func (h *Handler) handleOtpRequest(email string) error {
-	h.logger.Println("Sending otp email...")
 	pin, err := h.authService.GenerateOtp(email)
 	if err != nil {
-		h.logger.Printf("ERROR generating otp: %v", err.Error())
-		return fmt.Errorf("ERROR generating otp")
+		return problems.NewHTTPError(http.StatusInternalServerError, "ERROR generating otp", err)
 	}
 	err = h.mailer.Send(email, "Quote API OTP", fmt.Sprintf("OTP: %v", pin))
 	if err != nil {
-		h.logger.Printf("ERROR sending email: %v", err.Error())
-		return fmt.Errorf("ERROR sending email")
+		return problems.NewHTTPError(http.StatusInternalServerError, "ERROR sending otp email", err)
 	}
 	return nil
 }
 
-func (h *Handler) handleOtpSubmission(email, pin string) error {
-	status, err := h.authService.AuthenticateOtp(email, pin)
-	if err != nil {
-		h.logger.Printf("ERROR authenticating OTP")
-		return fmt.Errorf("Error authenticating OTP")
-	} else if status == auth.OTPInvalid {
-		return fmt.Errorf("Invalid OTP!")
-	} else if status == auth.OTPExpired {
-		return fmt.Errorf("Expired OTP!")
-	} else if status == auth.OTPUserNotFound {
-		return fmt.Errorf("No OTP found matching email")
+func (h *Handler) handleOtpSubmission(email, pin string) (string, *problems.HTTPError) {
+	if utils.LooksLikeEmail(email) == false {
+		return "", problems.NewHTTPError(http.StatusBadRequest, "Invalid email", nil)
 	}
-	return nil
+	status, err := h.authService.AuthenticateOtp(email, pin)
+	fmt.Println("auth result: ", status)
+	if err != nil {
+		return "", problems.NewHTTPError(http.StatusInternalServerError, "", err)
+	} else if status == auth.OTPInvalid {
+		return "", problems.NewHTTPError(http.StatusBadRequest, "Invalid OTP!", err)
+	} else if status == auth.OTPExpired {
+		return "", problems.NewHTTPError(http.StatusBadRequest, "Expired OTP!", err)
+	} else if status == auth.OTPUserNotFound {
+		return "", problems.NewHTTPError(http.StatusBadRequest, "No OTP found matching email", err)
+	}
+	newApiKey, err := h.authService.GenerateApiKey(email)
+	if err != nil {
+		return "", problems.NewHTTPError(http.StatusInternalServerError, "", err)
+	}
+	return newApiKey, nil
+}
+
+func (h *Handler) handleHttpError(w http.ResponseWriter, err *problems.HTTPError) {
+	switch err.Code {
+	case http.StatusInternalServerError:
+		msg := "Internal Server Error"
+		if err.Message != "" {
+			msg = err.Message
+		}
+		h.logger.Printf(err.Unwrap().Error())
+		w.WriteHeader(err.Code)
+		http.Error(w, msg, http.StatusInternalServerError)
+	default:
+		w.WriteHeader(err.Code)
+		http.Error(w, err.Message, http.StatusInternalServerError)
+	}
 }

@@ -45,13 +45,22 @@ type Auth struct {
 	db              *sql.DB
 }
 
-func (a *Auth) NewAuthService(db *sql.DB, otpSecondsValid int64) Auth {
+func NewAuthService(db *sql.DB, otpSecondsValid int64) *Auth {
 	otpCache := cache.NewOtpCache()
-	return Auth{
+	return &Auth{
 		otpService:      otpCache,
 		otpSecondsValid: otpSecondsValid,
 		db:              db,
 	}
+}
+
+func (a *Auth) GenerateOtp(email string) (string, error) {
+	newPin, err := a.generatePinForOtp()
+	if err != nil {
+		return "", err
+	}
+	a.otpService.CacheOtp(email, newPin)
+	return newPin, nil
 }
 
 func (a *Auth) generatePinForOtp() (string, error) {
@@ -87,8 +96,14 @@ func (a *Auth) AuthenticateOtp(email, pin string) (OTPStatus, error) {
 	return OTPValid, nil
 }
 
+// todo
 func (a *Auth) GenerateApiKey(email string) (string, error) {
-	return "", nil
+	return "SUPER SECRTET API KEY", nil
+}
+
+// todo
+func (a *Auth) AuthenticateApiKey(apiKey string) (bool, error) {
+	return true, nil
 }
 
 // gen new key for email => create new key and assign to cache
