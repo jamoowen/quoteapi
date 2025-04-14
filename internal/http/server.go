@@ -16,11 +16,12 @@ type Server struct {
 }
 
 func (s *Server) registerRoutes(mux *http.ServeMux, h Handler) {
-	mux.HandleFunc("GET /quote/random", h.randomQuoteHandler)
-	mux.HandleFunc("GET /quote/author", h.getQuotesForAuthorHandler)
-	mux.HandleFunc("POST /quote/author", h.addQuote)
 	mux.HandleFunc("GET /authenticate", h.handleAuthenticate)
 	mux.HandleFunc("POST /authenticate", h.handleAuthenticate)
+
+	mux.Handle("GET /quote/random", h.authMiddleware(http.HandlerFunc(h.randomQuoteHandler)))
+	mux.Handle("GET /quote/author", h.authMiddleware(http.HandlerFunc(h.getQuotesForAuthorHandler)))
+	mux.Handle("POST /quote/author", h.authMiddleware(http.HandlerFunc(h.addQuote)))
 }
 
 func (s *Server) StartServer(quoteService quoteapi.QuoteService, smtpService email.MailService, authService auth.AuthService, logger *log.Logger) error {

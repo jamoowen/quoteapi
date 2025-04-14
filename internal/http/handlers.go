@@ -187,7 +187,7 @@ func (h *Handler) handleOtpSubmission(email, pin string, ctx context.Context) (s
 	} else if status == auth.OTPUserNotFound {
 		return "", problems.NewHTTPError(http.StatusBadRequest, "Invalid email!", err)
 	}
-	newApiKey, err := h.authService.GenerateApiKey(email, ctx)
+	newApiKey, err := h.authService.CreateNewApiKeyForUser(email, ctx)
 	if err != nil {
 		return "", problems.NewHTTPError(http.StatusInternalServerError, "", err)
 	}
