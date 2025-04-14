@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -8,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
 	"github.com/jamoowen/quoteapi/internal/auth"
@@ -50,7 +52,6 @@ func (h *Handler) getQuotesForAuthorHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		h.handleHttpError(w, problems.NewHTTPError(http.StatusInternalServerError, "", err))
 		return
-
 	}
 	w.WriteHeader(http.StatusOK)
 	if len(randomQuote) == 0 {
@@ -94,20 +95,14 @@ func (h *Handler) addQuote(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (h *Handler) newApiKeyRequestForm(w http.ResponseWriter, r *http.Request) {
-}
-
 func (h *Handler) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-type")
 	fmt.Printf("Content type: %v\n", contentType)
 	switch contentType {
 	case "application/json":
-	case "application/x-www-form-urlencoded":
-		h.handleFormSubmission(w, r)
+		// to do -> handle authetication via backend requests
 	default:
-		t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
-		t.Execute(w, nil)
-		return
+		h.handleFormSubmission(w, r)
 	}
 }
 
@@ -119,21 +114,22 @@ func (h *Handler) handleFormSubmission(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dataToInjectIntoHtml := InjectableData{}
-	t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
+	t, err := template.ParseFiles("internal/http/templates/authenticate.html")
+	if err != nil {
+		h.handleHttpError(w, problems.NewHTTPError(http.StatusInternalServerError, "Failed to load html", err))
+		return
+	}
+
 	r.ParseForm()
 	email := r.FormValue("email")
-	fmt.Println("subnmitting form")
 	submittedPin := r.FormValue("pin")
 
-	fmt.Println("email, otp: ", email, submittedPin)
-	// new otp request
+	// no submission, just display the form
 	if submittedPin == "" && email == "" {
-		t := template.Must(template.New("form").Parse(apiKeyRequestTempl))
 		t.Execute(w, nil)
 		return
 
 	} else if submittedPin == "" {
-		fmt.Println("handling otp req")
 		httpErr := h.handleOtpRequest(email)
 		if httpErr != nil {
 			dataToInjectIntoHtml.Error = httpErr.Message
@@ -146,8 +142,7 @@ func (h *Handler) handleFormSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 
 	} else {
-		fmt.Println("handling otp submission")
-		apiKey, httpErr := h.handleOtpSubmission(email, submittedPin)
+		apiKey, httpErr := h.handleOtpSubmission(email, submittedPin, r.Context())
 		if httpErr != nil {
 			dataToInjectIntoHtml.Error = httpErr.Message
 			t.Execute(w, dataToInjectIntoHtml)
@@ -175,12 +170,14 @@ func (h *Handler) handleOtpRequest(email string) *problems.HTTPError {
 	return nil
 }
 
-func (h *Handler) handleOtpSubmission(email, pin string) (string, *problems.HTTPError) {
+func (h *Handler) handleOtpSubmission(email, pin string, ctx context.Context) (string, *problems.HTTPError) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	if utils.LooksLikeEmail(email) == false {
 		return "", problems.NewHTTPError(http.StatusBadRequest, "Invalid email", nil)
 	}
 	status, err := h.authService.AuthenticateOtp(email, pin)
-	fmt.Println("auth result: ", status)
 	if err != nil {
 		return "", problems.NewHTTPError(http.StatusInternalServerError, "", err)
 	} else if status == auth.OTPInvalid {
@@ -188,9 +185,9 @@ func (h *Handler) handleOtpSubmission(email, pin string) (string, *problems.HTTP
 	} else if status == auth.OTPExpired {
 		return "", problems.NewHTTPError(http.StatusBadRequest, "Expired OTP!", err)
 	} else if status == auth.OTPUserNotFound {
-		return "", problems.NewHTTPError(http.StatusBadRequest, "No OTP found matching email", err)
+		return "", problems.NewHTTPError(http.StatusBadRequest, "Invalid email!", err)
 	}
-	newApiKey, err := h.authService.GenerateApiKey(email)
+	newApiKey, err := h.authService.GenerateApiKey(email, ctx)
 	if err != nil {
 		return "", problems.NewHTTPError(http.StatusInternalServerError, "", err)
 	}
@@ -204,7 +201,7 @@ func (h *Handler) handleHttpError(w http.ResponseWriter, err *problems.HTTPError
 		if err.Message != "" {
 			msg = err.Message
 		}
-		h.logger.Printf(err.Unwrap().Error())
+		h.logger.Print(err.Unwrap().Error())
 		w.WriteHeader(err.Code)
 		http.Error(w, msg, http.StatusInternalServerError)
 	default:

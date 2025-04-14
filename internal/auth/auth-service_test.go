@@ -14,3 +14,11 @@ func TestGenerateOtp(t *testing.T) {
 	}
 	fmt.Println("OTP: ", pin)
 }
+
+func TestGenerateApiKey(t *testing.T) {
+	a := Auth{}
+	apiKey, hashedApiKey := a.generateApiKey()
+	if apiKey == "" || hashedApiKey == "" {
+		t.Fatal("Failed to generate api keys")
+	}
+}
