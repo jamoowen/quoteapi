@@ -16,6 +16,7 @@ import (
 	"github.com/jamoowen/quoteapi/internal/email"
 	"github.com/jamoowen/quoteapi/internal/problems"
 	"github.com/jamoowen/quoteapi/internal/utils"
+	"golang.org/x/time/rate"
 )
 
 type Handler struct {
@@ -23,6 +24,7 @@ type Handler struct {
 	authService  auth.AuthService
 	logger       *log.Logger
 	mailer       email.MailService
+	limiter      *rate.Limiter
 }
 type ApiKeyResponse struct {
 	APIKEY string
