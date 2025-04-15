@@ -99,7 +99,6 @@ func (h *Handler) addQuote(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-type")
-	fmt.Printf("Content type: %v\n", contentType)
 	switch contentType {
 	case "application/json":
 		// to do -> handle authetication via backend requests

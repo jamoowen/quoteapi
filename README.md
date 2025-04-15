@@ -1,8 +1,9 @@
 To do:
 
-- rate limiter
+- api key auth has a bug and is failing
 - tests for rate limiter
-- auth middleware
+- tests for auth
+- cleanup for ip rate limiter and cleanup for api key limiter
 - connection pool
 
 # Quote Api
