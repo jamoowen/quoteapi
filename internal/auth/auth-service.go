@@ -118,7 +118,7 @@ func (a *Auth) AuthenticateApiKey(apiKey string, ctx context.Context) (bool, err
 	if errors.Is(err, &problems.NotFoundError{}) {
 		return false, nil
 	}
-	return false, err
+	return true, err
 }
 
 func (a *Auth) hashString(s string) string {
