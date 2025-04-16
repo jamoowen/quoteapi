@@ -56,7 +56,6 @@ func (c *OtpCache) InvalidateOtp(email string) error {
 func (c *OtpCache) CleanupCache(expirationUnixTimestamp int64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
 	for email, otp := range c.cache {
 		if otp.CreatedTime < expirationUnixTimestamp {
 			delete(c.cache, email)

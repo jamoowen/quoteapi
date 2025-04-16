@@ -17,8 +17,7 @@ type User struct {
 	LastUsedAt         time.Time
 }
 
-type NotFoundError struct {
-}
+type NotFoundError struct{}
 
 type UsersStorage interface {
 	GetUserByEmail(email string, ctx context.Context) (User, error)
@@ -63,7 +62,7 @@ func (u *Users) GetUserByKey(hashedKey string, ctx context.Context) (User, error
 	row := u.db.QueryRowContext(ctx, `
 		SELECT email, hashed_api_key, request_count, created_at_timestamp, last_used_at 
 		FROM users
-		WHERE email = ?
+		WHERE hashed_api_key = ?
 		`, hashedKey)
 	err := row.Scan(
 		&user.Email,
@@ -74,7 +73,6 @@ func (u *Users) GetUserByKey(hashedKey string, ctx context.Context) (User, error
 	)
 	if err == sql.ErrNoRows {
 		return User{}, problems.NewNotFoundError(fmt.Sprintf("No user found for this key (%v), email", hashedKey))
-
 	}
 	if err != nil {
 		return User{}, fmt.Errorf("Failed to fetch user by key (%v): %v", hashedKey, err)
@@ -113,7 +111,6 @@ func (u *Users) IncrementRequestCountForUser(hashedKey string, ctx context.Conte
 	}
 	if rowsAffected == 0 {
 		return problems.NewNotFoundError(fmt.Sprintf("failed to increment key usage for this key (%v)", hashedKey))
-
 	}
 	return nil
 }

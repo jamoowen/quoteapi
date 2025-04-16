@@ -1,12 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"os"
 	"path"
 	"strconv"
-
-	"database/sql"
+	"time"
 
 	"github.com/jamoowen/quoteapi/internal/auth"
 	"github.com/jamoowen/quoteapi/internal/cache"
@@ -30,7 +30,7 @@ func main() {
 		logger.Fatalf("Startup error: %v", err.Error())
 	}
 	csvPath := path.Join(wd, "/data/quotes.csv")
-	cache, err := cache.NewQuoteCache(csvPath)
+	quoteCache, err := cache.NewQuoteCache(csvPath)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -57,7 +57,18 @@ func main() {
 
 	authService := auth.NewAuthService(db, int64(otpSecondsValid))
 
-	server := http.Server{}
-	log.Fatal(server.StartServer(cache, smtpService, authService, logger))
+	requiredSecondIntervalsBeforeIpRateLimit := int64(5)
+	requiredSecondIntervalsBeforeApiKeyRateLimit := int64(5)
+	s, err := http.NewServer(quoteCache, smtpService, authService, requiredSecondIntervalsBeforeIpRateLimit, requiredSecondIntervalsBeforeApiKeyRateLimit, logger)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	authCacheCleanupIntervals := time.Duration(5 * time.Minute)
+	go http.CleanupAuthCache(&s.ApiKeyRateLimiter, &s.IpRateLimiter, authCacheCleanupIntervals, requiredSecondIntervalsBeforeApiKeyRateLimit, requiredSecondIntervalsBeforeIpRateLimit)
+
+	otpCacheCleanupIntervals := time.Duration(5 * time.Minute)
+	go cache.CleanupOtpCache()
+
+	log.Fatal(s.StartServer())
 }

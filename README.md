@@ -1,9 +1,6 @@
 To do:
 
-- api key auth has a bug and is failing
-- tests for rate limiter
-- tests for auth
-- cleanup for ip rate limiter and cleanup for api key limiter
+- cleanup otp cache
 - connection pool
 
 # Quote Api
@@ -28,8 +25,14 @@ in your browser go to /authenticate
 
 ## Routes
 
-GET /random
-GET /random/author
+GET /random => fetches a single quote at random for you 
+
+GET /author?name=<author name> => fetches all quotes from authors matching that name
+
+POST /author => inserts a new quote into the global quote db for everyone
+** Content-Type must be application/json
+** example of request body: {author":"Donald Trump","message":"CHINA!"}
+
 
 running locally:
 

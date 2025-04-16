@@ -30,13 +30,15 @@ func (h *Handler) authMiddleware(next http.Handler) http.Handler {
 }
 
 type apiKeyRateLimiter struct {
-	apiKeys map[string]int64
-	mu      sync.RWMutex
+	requiredIntervalSeconds int64
+	apiKeys                 map[string]int64
+	mu                      sync.RWMutex
 }
 
 type ipAddressRateLimiter struct {
-	ipAddresses map[string]int64
-	mu          sync.RWMutex
+	requiredIntervalSeconds int64
+	ipAddresses             map[string]int64
+	mu                      sync.RWMutex
 }
 
 func (l *apiKeyRateLimiter) limit(next http.Handler) http.Handler {
@@ -53,7 +55,7 @@ func (l *apiKeyRateLimiter) limit(next http.Handler) http.Handler {
 		l.apiKeys[apiKey] = now
 		if !ok {
 			next.ServeHTTP(w, r)
-		} else if now-lastUsed > API_RATE_LIMIT_SECONDS {
+		} else if now-lastUsed > l.requiredIntervalSeconds {
 			next.ServeHTTP(w, r)
 		} else {
 			http.Error(w, "Too many requests. API keys are limited to 1 request per min", http.StatusTooManyRequests)
@@ -80,10 +82,32 @@ func (l *ipAddressRateLimiter) limit(next http.Handler) http.Handler {
 		l.ipAddresses[ip] = now
 		if !ok {
 			next.ServeHTTP(w, r)
-		} else if now-lastUsed > IP_ADDRESS_RATE_LIMIT_SECONDS {
+		} else if now-lastUsed > l.requiredIntervalSeconds {
 			next.ServeHTTP(w, r)
 		} else {
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 		}
 	})
+}
+
+func CleanupAuthCache(a *apiKeyRateLimiter, i *ipAddressRateLimiter, cleanupDelay time.Duration, apiKeyRateLimitSeconds, ipRateLimitSeconds int64) {
+	for {
+		time.Sleep(cleanupDelay)
+		now := time.Now().Unix()
+		a.mu.Lock()
+		for key, lastUsed := range a.apiKeys {
+			if now-lastUsed > apiKeyRateLimitSeconds {
+				delete(a.apiKeys, key)
+			}
+		}
+		a.mu.Unlock()
+		i.mu.Lock()
+		now = time.Now().Unix()
+		for key, lastUsed := range i.ipAddresses {
+			if now-lastUsed > ipRateLimitSeconds {
+				delete(i.ipAddresses, key)
+			}
+		}
+		i.mu.Unlock()
+	}
 }
