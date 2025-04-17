@@ -12,6 +12,7 @@ import (
 	"github.com/jamoowen/quoteapi/internal/cache"
 	"github.com/jamoowen/quoteapi/internal/email"
 	"github.com/jamoowen/quoteapi/internal/http"
+	"github.com/jamoowen/quoteapi/internal/jobs"
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -49,6 +50,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+	db.SetMaxOpenConns(3)
+	db.SetConnMaxIdleTime(5 * time.Minute)
 
 	otpSecondsValid, err := strconv.Atoi(os.Getenv("OTP_SECONDS_VALID"))
 	if err != nil {
@@ -65,7 +68,7 @@ func main() {
 		log.Fatal(err)
 	}
 	cleanupInterval := 12 * time.Hour
-	go cleanupCaches(cleanupInterval, int64(otpSecondsValid), authService, s)
+	go jobs.CacheCleanupJob(cleanupInterval, int64(otpSecondsValid), authService, s)
 
 	log.Fatal(s.StartServer())
 }

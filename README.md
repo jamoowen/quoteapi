@@ -1,8 +1,11 @@
 To do:
 
-- cleanup otp cache
-- connection pool
-- deployment
+# deployment
+- when i push to main, github actions needs to run tests. if tests pass, it needs to somehow get the binary onto my digital ocean droplet
+- the vm needs to run build? or does this need to be copied straight tot the machine?
+- vm needs to run the file
+- what about env vars? just add manually for now?
+
 
 # Quote Api
 

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -52,13 +53,13 @@ func (l *ApiKeyRateLimiter) limit(next http.Handler) http.Handler {
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		lastUsed, ok := l.apiKeys[apiKey]
-		l.apiKeys[apiKey] = now
-		if !ok {
-			next.ServeHTTP(w, r)
-		} else if now-lastUsed > l.requiredIntervalSeconds {
-			next.ServeHTTP(w, r)
+		if ok && now-lastUsed < l.requiredIntervalSeconds {
+			msg := fmt.Sprintf("Too many requests. API keys are limited to 1 request every %v seconds", l.requiredIntervalSeconds)
+			http.Error(w, msg, http.StatusTooManyRequests)
 		} else {
-			http.Error(w, "Too many requests. API keys are limited to 1 request per min", http.StatusTooManyRequests)
+			l.apiKeys[apiKey] = now
+			next.ServeHTTP(w, r)
+
 		}
 	})
 }
@@ -79,10 +80,11 @@ func (l *IpAddressRateLimiter) limit(next http.Handler) http.Handler {
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		lastUsed, ok := l.ipAddresses[ip]
-		l.ipAddresses[ip] = now
 		if ok && now-lastUsed < l.requiredIntervalSeconds {
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 		} else {
+
+			l.ipAddresses[ip] = now
 			next.ServeHTTP(w, r)
 		}
 	})
