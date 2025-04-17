@@ -17,7 +17,7 @@ type OtpService interface {
 	CacheOtp(email, pin string) error
 	GetOtp(email string) (Otp, error)
 	InvalidateOtp(email string) error
-	CleanupCache(expirationTime int64) error
+	CleanupCache(expirationSeconds int64)
 }
 
 type OtpCache struct {
@@ -40,7 +40,7 @@ func (c *OtpCache) GetOtp(email string) (Otp, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	otp, ok := c.cache[email]
-	if ok == false {
+	if !ok {
 		return Otp{}, problems.NewNotFoundError(fmt.Sprintf("No OTP found for email (%v)", email))
 	}
 	return otp, nil
@@ -53,13 +53,13 @@ func (c *OtpCache) InvalidateOtp(email string) error {
 	return nil
 }
 
-func (c *OtpCache) CleanupCache(expirationUnixTimestamp int64) error {
+func (c *OtpCache) CleanupCache(otpSecondsValid int64) {
+	now := time.Now().Unix()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for email, otp := range c.cache {
-		if otp.CreatedTime < expirationUnixTimestamp {
+		if now-otp.CreatedTime > otpSecondsValid {
 			delete(c.cache, email)
 		}
 	}
-	return nil
 }

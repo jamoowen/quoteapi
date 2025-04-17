@@ -24,6 +24,7 @@ type AuthService interface {
 	GenerateOtp(email string) (string, error)
 	AuthenticateOtp(email, otp string) (OTPStatus, error)
 	AuthenticateApiKey(apiKey string, ctx context.Context) (bool, error)
+	CleanupCache(expirationSeconds int64)
 }
 
 type OTPStatus int
@@ -128,17 +129,8 @@ func (a *Auth) hashString(s string) string {
 	return hex.EncodeToString(hashBytes)
 }
 
-func CleanupOtpCache(c *OtpCache, cleanupDelay time.Duration, otpValiditySeconds int64) {
-	for {
-		time.Sleep(cleanupDelay)
-		now := time.Now().Unix()
-		c.mu.Lock()
-		for email, otp := range c.cache {
-			if now-otp.CreatedTime > otpValiditySeconds {
-				delete(c.cache, email)
-			}
-		}
-	}
+func (a *Auth) CleanupCache(expirationSeconds int64) {
+	a.otpService.CleanupCache(expirationSeconds)
 }
 
 // gen new key for email => create new key and assign to cache

@@ -13,20 +13,20 @@ import (
 )
 
 type Server struct {
-	IpRateLimiter     ipAddressRateLimiter
-	ApiKeyRateLimiter apiKeyRateLimiter
-	handler           Handler
+	IpAddressRateLimiter IpAddressRateLimiter
+	ApiKeyRateLimiter    ApiKeyRateLimiter
+	handler              Handler
 }
 
 // middleware looks ugly surely theres a cleaner way to write this
 func (s *Server) registerRoutes(mux *http.ServeMux, h Handler) {
 	mux.Handle("GET /authenticate",
-		s.IpRateLimiter.limit(
+		s.IpAddressRateLimiter.limit(
 			http.HandlerFunc(h.handleAuthenticate),
 		),
 	)
 	mux.Handle("POST /authenticate",
-		s.IpRateLimiter.limit(
+		s.IpAddressRateLimiter.limit(
 			http.HandlerFunc(h.handleAuthenticate),
 		),
 	)
@@ -36,7 +36,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux, h Handler) {
 	mux.Handle("GET /quote/random",
 		h.authMiddleware(
 			s.ApiKeyRateLimiter.limit(
-				s.IpRateLimiter.limit(
+				s.IpAddressRateLimiter.limit(
 					http.HandlerFunc(h.randomQuoteHandler),
 				),
 			),
@@ -46,7 +46,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux, h Handler) {
 	mux.Handle("GET /quote/author",
 		h.authMiddleware(
 			s.ApiKeyRateLimiter.limit(
-				s.IpRateLimiter.limit(
+				s.IpAddressRateLimiter.limit(
 					http.HandlerFunc(h.getQuotesForAuthorHandler),
 				),
 			),
@@ -56,7 +56,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux, h Handler) {
 	mux.Handle("POST /quote/author",
 		h.authMiddleware(
 			s.ApiKeyRateLimiter.limit(
-				s.IpRateLimiter.limit(
+				s.IpAddressRateLimiter.limit(
 					http.HandlerFunc(h.addQuote),
 				),
 			),
@@ -67,10 +67,10 @@ func (s *Server) registerRoutes(mux *http.ServeMux, h Handler) {
 func NewServer(quoteService quoteapi.QuoteService, smtpService email.MailService, authService auth.AuthService, ipRateLimitSeconds, apiKeyRateLimitSeconds int64, logger *log.Logger) (*Server, error) {
 	s := Server{}
 	ipAddressUsageMap := make(map[string]int64)
-	s.IpRateLimiter = ipAddressRateLimiter{ipAddresses: ipAddressUsageMap, requiredIntervalSeconds: ipRateLimitSeconds}
+	s.IpAddressRateLimiter = IpAddressRateLimiter{ipAddresses: ipAddressUsageMap, requiredIntervalSeconds: ipRateLimitSeconds}
 
 	apiKeyUsageMap := make(map[string]int64)
-	s.ApiKeyRateLimiter = apiKeyRateLimiter{apiKeys: apiKeyUsageMap, requiredIntervalSeconds: apiKeyRateLimitSeconds}
+	s.ApiKeyRateLimiter = ApiKeyRateLimiter{apiKeys: apiKeyUsageMap, requiredIntervalSeconds: apiKeyRateLimitSeconds}
 
 	handler := Handler{
 		quoteService: quoteService,

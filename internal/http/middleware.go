@@ -29,19 +29,19 @@ func (h *Handler) authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-type apiKeyRateLimiter struct {
+type ApiKeyRateLimiter struct {
 	requiredIntervalSeconds int64
 	apiKeys                 map[string]int64
 	mu                      sync.RWMutex
 }
 
-type ipAddressRateLimiter struct {
+type IpAddressRateLimiter struct {
 	requiredIntervalSeconds int64
 	ipAddresses             map[string]int64
 	mu                      sync.RWMutex
 }
 
-func (l *apiKeyRateLimiter) limit(next http.Handler) http.Handler {
+func (l *ApiKeyRateLimiter) limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now().Unix()
 		apiKey := r.Header.Get("X-API-KEY")
@@ -63,7 +63,7 @@ func (l *apiKeyRateLimiter) limit(next http.Handler) http.Handler {
 	})
 }
 
-func (l *ipAddressRateLimiter) limit(next http.Handler) http.Handler {
+func (l *IpAddressRateLimiter) limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now().Unix()
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -80,34 +80,28 @@ func (l *ipAddressRateLimiter) limit(next http.Handler) http.Handler {
 		defer l.mu.Unlock()
 		lastUsed, ok := l.ipAddresses[ip]
 		l.ipAddresses[ip] = now
-		if !ok {
-			next.ServeHTTP(w, r)
-		} else if now-lastUsed > l.requiredIntervalSeconds {
-			next.ServeHTTP(w, r)
-		} else {
+		if ok && now-lastUsed < l.requiredIntervalSeconds {
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+		} else {
+			next.ServeHTTP(w, r)
 		}
 	})
 }
 
-func CleanupAuthCache(a *apiKeyRateLimiter, i *ipAddressRateLimiter, cleanupDelay time.Duration, apiKeyRateLimitSeconds, ipRateLimitSeconds int64) {
-	for {
-		time.Sleep(cleanupDelay)
-		now := time.Now().Unix()
-		a.mu.Lock()
-		for key, lastUsed := range a.apiKeys {
-			if now-lastUsed > apiKeyRateLimitSeconds {
-				delete(a.apiKeys, key)
-			}
+func (s *Server) CleanupMiddlewareCache() {
+	now := time.Now().Unix()
+	s.ApiKeyRateLimiter.mu.Lock()
+	for key, lastUsed := range s.ApiKeyRateLimiter.apiKeys {
+		if now-lastUsed > s.ApiKeyRateLimiter.requiredIntervalSeconds {
+			delete(s.ApiKeyRateLimiter.apiKeys, key)
 		}
-		a.mu.Unlock()
-		i.mu.Lock()
-		now = time.Now().Unix()
-		for key, lastUsed := range i.ipAddresses {
-			if now-lastUsed > ipRateLimitSeconds {
-				delete(i.ipAddresses, key)
-			}
-		}
-		i.mu.Unlock()
 	}
+	s.ApiKeyRateLimiter.mu.Unlock()
+	s.IpAddressRateLimiter.mu.Lock()
+	for key, lastUsed := range s.IpAddressRateLimiter.ipAddresses {
+		if now-lastUsed > s.IpAddressRateLimiter.requiredIntervalSeconds {
+			delete(s.IpAddressRateLimiter.ipAddresses, key)
+		}
+	}
+	s.IpAddressRateLimiter.mu.Unlock()
 }

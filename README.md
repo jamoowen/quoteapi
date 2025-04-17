@@ -2,6 +2,7 @@ To do:
 
 - cleanup otp cache
 - connection pool
+- deployment
 
 # Quote Api
 

@@ -59,16 +59,13 @@ func main() {
 
 	requiredSecondIntervalsBeforeIpRateLimit := int64(5)
 	requiredSecondIntervalsBeforeApiKeyRateLimit := int64(5)
+
 	s, err := http.NewServer(quoteCache, smtpService, authService, requiredSecondIntervalsBeforeIpRateLimit, requiredSecondIntervalsBeforeApiKeyRateLimit, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	authCacheCleanupIntervals := time.Duration(5 * time.Minute)
-	go http.CleanupAuthCache(&s.ApiKeyRateLimiter, &s.IpRateLimiter, authCacheCleanupIntervals, requiredSecondIntervalsBeforeApiKeyRateLimit, requiredSecondIntervalsBeforeIpRateLimit)
-
-	otpCacheCleanupIntervals := time.Duration(5 * time.Minute)
-	go cache.CleanupOtpCache()
+	cleanupInterval := 12 * time.Hour
+	go cleanupCaches(cleanupInterval, int64(otpSecondsValid), authService, s)
 
 	log.Fatal(s.StartServer())
 }

@@ -155,7 +155,7 @@ func (h *Handler) handleFormSubmission(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleOtpRequest(email string) *problems.HTTPError {
-	if utils.LooksLikeEmail(email) == false {
+	if !utils.LooksLikeEmail(email) {
 		return problems.NewHTTPError(http.StatusBadRequest, "Invalid email", nil)
 	}
 	fmt.Println("gernerating otp")
@@ -175,7 +175,7 @@ func (h *Handler) handleOtpSubmission(email, pin string, ctx context.Context) (s
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if utils.LooksLikeEmail(email) == false {
+	if !utils.LooksLikeEmail(email) {
 		return "", problems.NewHTTPError(http.StatusBadRequest, "Invalid email", nil)
 	}
 	status, err := h.authService.AuthenticateOtp(email, pin)

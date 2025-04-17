@@ -78,7 +78,7 @@ func (c *QuoteCache) AddNewQuote(newQuote quoteapi.Quote) error {
 func NewQuoteCache(csvPath string) (*QuoteCache, error) {
 	records, err := csv.ReadCsv(csvPath)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to initialize quote cache: %w", err)
+		return nil, fmt.Errorf("failed to initialize quote cache: %w", err)
 	}
 	quotes := make([]quoteapi.Quote, 0, len(records))
 	for i, record := range records {
@@ -89,8 +89,8 @@ func NewQuoteCache(csvPath string) (*QuoteCache, error) {
 			fmt.Printf("malformed record: %v", record)
 			continue
 		}
-		var author string = record[0]
-		var message string = record[1]
+		author := record[0]
+		message := record[1]
 		quotes = append(quotes, quoteapi.Quote{Author: author, Message: message})
 	}
 
