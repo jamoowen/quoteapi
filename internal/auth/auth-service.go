@@ -44,13 +44,14 @@ type Auth struct {
 	apiKeySecret    string
 }
 
-func NewAuthService(db *sql.DB, otpSecondsValid int64) *Auth {
+func NewAuthService(db *sql.DB, otpSecondsValid int64, apiKeySecret string) *Auth {
 	usersStorage := sqlite.NewUsersStorage(db)
 	otpCache := cache.NewOtpCache()
 	return &Auth{
 		otpService:      otpCache,
 		otpSecondsValid: otpSecondsValid,
 		usersStorage:    usersStorage,
+		apiKeySecret:    apiKeySecret,
 	}
 }
 
@@ -100,7 +101,7 @@ func (a *Auth) generateApiKey() (string, string) {
 	// is determinism a word???
 	aLittleBitOfDeterminism := strconv.FormatInt(time.Now().UnixMicro(), 12)
 	apiKey := uuid.New().String() + aLittleBitOfDeterminism
-	hashedApiKey := a.hashString(apiKey)
+	hashedApiKey := a.hashString(apiKey + a.apiKeySecret)
 	return apiKey, hashedApiKey
 }
 
@@ -114,7 +115,7 @@ func (a *Auth) CreateNewApiKeyForUser(email string, ctx context.Context) (string
 }
 
 func (a *Auth) AuthenticateApiKey(apiKey string, ctx context.Context) (bool, error) {
-	hashedApiKey := a.hashString(apiKey)
+	hashedApiKey := a.hashString(apiKey + a.apiKeySecret)
 	_, err := a.usersStorage.GetUserByKey(hashedApiKey, ctx)
 	if errors.Is(err, &problems.NotFoundError{}) {
 		return false, nil

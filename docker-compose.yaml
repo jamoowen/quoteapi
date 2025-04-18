@@ -1,0 +1,13 @@
+# (for development)
+services:
+  quoteapi:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - sqlite_data:/app/db
+    env_file:
+      - .env
+ 
+volumes:
+  sqlite_data:

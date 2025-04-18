@@ -20,16 +20,18 @@ import (
 func init() {
 	err := godotenv.Load(".env")
 	if err != nil {
-		panic("Error loading .env file")
+		log.Println("Failed to load .env", err)
 	}
 }
 
 func main() {
 	logger := log.Default()
+
 	wd, err := os.Getwd()
 	if err != nil {
 		logger.Fatalf("Startup error: %v", err.Error())
 	}
+
 	csvPath := path.Join(wd, "/data/quotes.csv")
 	quoteCache, err := cache.NewQuoteCache(csvPath)
 	if err != nil {
@@ -45,7 +47,11 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	db, err := sql.Open("sqlite3", "./db/quotedb.sqlite")
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "./db/quotedb.sqlite"
+	}
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,7 +64,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	authService := auth.NewAuthService(db, int64(otpSecondsValid))
+	authSecret := os.Getenv("AUTH_SECRET")
+	if authSecret == "" {
+		log.Fatal("AUTH_SECRET env var missing")
+	}
+	authService := auth.NewAuthService(db, int64(otpSecondsValid), authSecret)
 
 	requiredSecondIntervalsBeforeIpRateLimit := int64(5)
 	requiredSecondIntervalsBeforeApiKeyRateLimit := int64(5)

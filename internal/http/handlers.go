@@ -123,7 +123,7 @@ func (h *Handler) handleFormSubmission(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dataToInjectIntoHtml := InjectableData{}
-	t, err := template.ParseFiles("internal/http/templates/authenticate.html")
+	t, err := template.ParseFiles("templates/authenticate.html")
 	if err != nil {
 		h.handleHttpError(w, problems.NewHTTPError(http.StatusInternalServerError, "Failed to load html", err))
 		return

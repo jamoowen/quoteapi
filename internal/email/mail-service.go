@@ -22,7 +22,7 @@ type smtpMailer struct {
 
 func NewSmtpMailer(from, password, smtpHost, smtpPort string) (*smtpMailer, error) {
 	// hostname is used by PlainAuth to validate the TLS certificate.
-	if utils.LooksLikeEmail(from) == false {
+	if !utils.LooksLikeEmail(from) {
 		return nil, fmt.Errorf("from email looks bad: %v", from)
 	}
 	if password == "" || smtpHost == "" || smtpPort == "" {

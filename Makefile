@@ -12,6 +12,7 @@ db:
 
 test:
 	go test -v $(TEST_PKGS)
+
 run:
 	go run cmd/server/main.go
 
