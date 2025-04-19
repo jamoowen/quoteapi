@@ -31,12 +31,11 @@ RUN mkdir -p /app/bin /app/db /app/data/csv
 # Copy only the binary from builder
 COPY --from=builder /app/bin/quoteapi /app/bin/quoteapi   
 
-# Debug: Print the contents of the source directory
-RUN echo "copying static data..." 
 # csv
 COPY data/quotes.csv /app/data/
 # the sql migration
 COPY migrations /app/migrations
+# html templates for frontend
 COPY templates /app/templates
 
 # Run the binary
