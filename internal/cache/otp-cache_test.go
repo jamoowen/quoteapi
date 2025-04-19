@@ -6,7 +6,6 @@ import (
 )
 
 func TestCacheOtp(t *testing.T) {
-
 	c := NewOtpCache()
 	pin := "testOtp"
 	email := "example@gmail.com"
@@ -35,8 +34,8 @@ func TestCleanupCache(t *testing.T) {
 		t.Errorf("Expected 1 item in the cache")
 	}
 	time.Sleep(5 * time.Second)
-	expirationTimestamp := time.Now().Unix() - 4
-	c.CleanupCache(expirationTimestamp)
+	otpSecondsValid := 4
+	c.CleanupCache(int64(otpSecondsValid))
 	otp, ok := c.cache[email]
 	if ok == true {
 		t.Errorf("Expected cleanup to delete expired keys: %v", otp)

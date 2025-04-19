@@ -1,6 +1,7 @@
 # (for development)
 services:
   quoteapi:
+    image: jamoowen/quoteapi:latest
     build: .
     ports:
       - "8080:8080"

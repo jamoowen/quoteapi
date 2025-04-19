@@ -1,0 +1,89 @@
+name: Test and Deploy QuoteAPI
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/quoteapi
+  GO_VERSION: '1.24' 
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run tests
+        run: |
+          go test -v ./internal/utils ./internal/cache/ ./internal/auth
+
+  deploy:
+    name: Build and Deploy
+    needs: test  # This ensures deploy only runs if tests pass
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.DOCKER_IMAGE }}:latest
+          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
+
+      - name: Deploy to DigitalOcean
+        uses: appleboy/ssh-action@master
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_EMAIL_ADDRESS: ${{ secrets.SMTP_EMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          OTP_SECONDS_VALID: ${{ secrets.OTP_SECONDS_VALID }}
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: AUTH_SECRET,RAW_CSV_PATH,ORDERED_CSV_PATH,SMTP_HOST,SMTP_PORT,SMTP_EMAIL_ADDRESS,GMAIL_APP_PASSWORD,OTP_SECONDS_VALID
+          script: |
+            docker pull ${{ env.DOCKER_IMAGE }}:latest
+            
+            docker stop quoteapi || true
+            docker rm quoteapi || true
+            mkdir -p /app/data
+            
+            docker run -d \
+              --name quoteapi \
+              --restart always \
+              -p 8080:8080 \
+              -v sqlite_data:/app/db \
+              -e AUTH_SECRET="${AUTH_SECRET}" \
+              -e SMTP_HOST="${SMTP_HOST}" \
+              -e SMTP_PORT="${SMTP_PORT}" \
+              -e SMTP_EMAIL_ADDRESS="${SMTP_EMAIL_ADDRESS}" \
+              -e GMAIL_APP_PASSWORD="${GMAIL_APP_PASSWORD}" \
+              -e OTP_SECONDS_VALID="${OTP_SECONDS_VALID}" \
+              ${{ env.DOCKER_IMAGE }}:latest
+            
+            docker image prune -f

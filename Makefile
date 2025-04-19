@@ -1,7 +1,7 @@
 .PHONY: test build start-server clean
 
 
-TEST_PKGS = ./internal/utils ./internal/cache/
+TEST_PKGS = ./internal/utils ./internal/cache/ ./internal/auth
 
 bin:
 	mkdir -p bin
