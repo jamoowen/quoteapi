@@ -1,11 +1,6 @@
-To do:
-
-# deployment
-- when i push to main, github actions needs to run tests. if tests pass, it needs to somehow get the binary onto my digital ocean droplet
-- the vm needs to run build? or does this need to be copied straight tot the machine?
-- vm needs to run the file
-- what about env vars? just add manually for now?
-
+!Note
+project not deployed because digital ocean is refusing to allow outgoing smtp and that is what my auth currently hinges upon :( 
+Need to find a workaround at some point
 
 # Quote Api
 
@@ -37,11 +32,57 @@ POST /author => inserts a new quote into the global quote db for everyone
 ** Content-Type must be application/json
 ** example of request body: {author":"Donald Trump","message":"CHINA!"}
 
+# Instructions
 
-running locally:
+This application can be run either natively or using Docker. Supported architectures: `arm64`, `amd64`
 
-1. install binary from github
-2. install sqlite from brew if not already done
+## Option 1: Docker 
+1. Pull the image:
+   ```
+   docker pull jamoowen/quoteapi:latest
+   ```
+2. Create a `.env` file in your project directory with your secrets:
+   ```
+   SECRET_KEY=your_secret_here
+   # Add other required environment variables
+   ```
+3. Run with docker compose:
+   ```
+   docker compose up
+   ```
 
-to interact via cli with db:
-sqlite3 db/quotedb.sqlite
+## Option 2: Native Installation
+1. Clone the repository
+2. Install Go (if not already installed)
+3. Create a `.env` file with your secrets (as above)
+4. Use the following make commands:
+
+   ```bash
+   # Initialize the database (required first time)
+   make init-db
+
+   # Build the application
+   make build
+
+   # Run the server directly without building
+   make run
+   
+   # Or build and start the server
+   make build
+   make start-server
+
+   # Run tests
+   make test
+
+   # Clean build artifacts
+   make clean
+
+   # For development: recreate database with sample data
+   make recreate-dev-db
+   ```
+
+Required Environment Variables:
+- SECRET_KEY: Your secret key
+- [List any other required env variables]
+
+Note: The application uses SQLite for data storage. Database files will be created in the `db` directory.
