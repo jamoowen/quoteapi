@@ -4,24 +4,10 @@ import (
 	"testing"
 
 	quoteapi "github.com/jamoowen/quoteapi/internal"
-	"github.com/joho/godotenv"
 )
-
-func init() {
-	err := godotenv.Load("../../.env")
-	if err != nil {
-		panic("Error loading .env file")
-	}
-}
 
 // Test for QuoteCache initialization
 func TestQuoteCacheInitialization(t *testing.T) {
-	// wd, err := os.Getwd()
-	// fmt.Println("CWD: ", wd)
-	// if err != nil {
-	// 	t.Fatalf("Quote cache initialization failed: %v", err.Error())
-	// }
-	// csvPath := path.Join(wd, "/data/quotes.csv")
 	quoteCache, err := NewQuoteCache("../../data/quotes.csv")
 	if err != nil {
 		t.Fatalf("Quote cache initialization failed: %v", err.Error())
@@ -42,7 +28,7 @@ func TestGetRandomQuote(t *testing.T) {
 
 func TestInsertQuote(t *testing.T) {
 	// Defining the columns of the table
-	var tests = []struct {
+	tests := []struct {
 		name           string
 		quote          quoteapi.Quote
 		want           error

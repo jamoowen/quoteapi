@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/jamoowen/quoteapi/internal/csv"
 	"log"
 	"os"
 	"path"
 	"slices"
 	"strings"
+
+	"github.com/jamoowen/quoteapi/internal/csv"
 )
 
 func main() {
@@ -56,12 +57,10 @@ func main() {
 	// insert header again
 	cleanedRecords = slices.Insert(cleanedRecords, 0, []string{"Author", "Message"})
 	err = csv.OverwriteCsv(cleanedRecords, targetPath)
-
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
 
 	fmt.Printf("ordered csv successfully written to path:%v length: %v\nRecords head: %v %v\n", targetPath, len(cleanedRecords), cleanedRecords[0][0], cleanedRecords[0][1])
 	// isolate the header initially
-
 }

@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/jamoowen/quoteapi/internal/sqlite"
@@ -11,11 +10,10 @@ import (
 func TestGenerateOtp(t *testing.T) {
 	auth := Auth{}
 	auth.otpSecondsValid = 10
-	pin, err := auth.generatePinForOtp()
+	_, err := auth.generatePinForOtp()
 	if err != nil {
 		t.Fatalf(":Failed to generate a random pin for otp: %v", err.Error())
 	}
-	fmt.Println("OTP: ", pin)
 }
 
 func TestGenerateApiKey(t *testing.T) {
@@ -34,8 +32,6 @@ func TestAuthenticateApiKey(t *testing.T) {
 
 	var c context.Context
 	authorized, err := a.AuthenticateApiKey(apiKey, c)
-	fmt.Println(apiKey, hashedApiKey)
-
 	if err != nil {
 		t.Fatal("Failed to authenticate api key")
 	}

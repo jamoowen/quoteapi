@@ -65,7 +65,6 @@ func (h *Handler) getQuotesForAuthorHandler(w http.ResponseWriter, r *http.Reque
 
 // POST /quote/add
 func (h *Handler) addQuote(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("adding quote to db")
 	w.Header().Set("Content-Type", "application/json")
 	// Limit request body size to 1MB
 	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
@@ -95,6 +94,7 @@ func (h *Handler) addQuote(w http.ResponseWriter, r *http.Request) {
 		h.handleHttpError(w, problems.NewHTTPError(http.StatusBadRequest, "Message cannot exceed 100 words", nil))
 		return
 	}
+	h.logger.Println("adding quote to db: ", newQuote)
 	err = h.quoteService.AddNewQuote(newQuote)
 	if err != nil {
 		h.logger.Println("Error saving quote: ", err.Error())
@@ -166,8 +166,6 @@ func (h *Handler) handleOtpRequest(email string) *problems.HTTPError {
 	if !utils.LooksLikeEmail(email) {
 		return problems.NewHTTPError(http.StatusBadRequest, "Invalid email", nil)
 	}
-	fmt.Println("gernerating otp")
-
 	pin, err := h.authService.GenerateOtp(email)
 	if err != nil {
 		return problems.NewHTTPError(http.StatusInternalServerError, "ERROR generating otp", err)

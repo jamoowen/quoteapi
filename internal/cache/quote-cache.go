@@ -2,6 +2,7 @@ package cache
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"slices"
 	"strings"
@@ -86,7 +87,7 @@ func NewQuoteCache(csvPath string) (*QuoteCache, error) {
 			continue
 		}
 		if len(record) != 2 {
-			fmt.Printf("malformed record: %v", record)
+			log.Println("malformed record: ", record)
 			continue
 		}
 		author := record[0]
