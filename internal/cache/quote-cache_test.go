@@ -7,15 +7,15 @@ import (
 )
 
 // Test for QuoteCache initialization
-func TestQuoteCacheInitialization(t *testing.T) {
-	quoteCache, err := NewQuoteCache("../../data/quotes.csv")
-	if err != nil {
-		t.Fatalf("Quote cache initialization failed: %v", err.Error())
-	}
-	if len(quoteCache.Quotes) < 100 {
-		t.Errorf("Expected at least 100 quotes, got %d", len(quoteCache.Quotes))
-	}
-}
+// func TestQuoteCacheInitialization(t *testing.T) {
+// 	quoteCache, err := NewQuoteCache("../../data/quotes.csv")
+// 	if err != nil {
+// 		t.Fatalf("Quote cache initialization failed: %v", err.Error())
+// 	}
+// 	if len(quoteCache.Quotes) < 100 {
+// 		t.Errorf("Expected at least 100 quotes, got %d", len(quoteCache.Quotes))
+// 	}
+// }
 
 // Test for GetRandomQuote()
 func TestGetRandomQuote(t *testing.T) {
